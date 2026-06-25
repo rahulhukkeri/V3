@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Commercial Underwriting Dashboard - Candela Labs</title>
+  <meta name="description" content="Commercial Underwriting Decision Cockpit — Candela Labs. Manage fresh and returning cases, risk routing, reinsurance, and geospatial accumulation.">
+  <link rel="stylesheet" href="style.css">
+  <!-- Leaflet.js — runs on GitHub Pages, no API key needed -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- Sidebar Navigation -->
+  <aside id="app-sidebar">
+    <div class="brand">
+      <img src="logo.jpg" alt="Candela Labs Logo" class="brand-logo-img">
+    </div>
+    
+    <ul class="sidebar-menu">
+      <li class="menu-item active" data-view="dashboard-view">
+        <a><i data-lucide="layout-dashboard"></i> Dashboard</a>
+      </li>
+      <li class="menu-item" data-view="new-quote-view">
+        <a><i data-lucide="file-plus"></i> New Quotation</a>
+      </li>
+      <li class="menu-item" data-view="work-queue-view">
+        <a><i data-lucide="list-todo"></i> Work Queue</a>
+      </li>
+      <li class="menu-item" data-view="risk-map-view">
+        <a><i data-lucide="map"></i> Accumulation Map</a>
+      </li>
+      <li class="menu-item" data-view="product-configurator-view">
+        <a><i data-lucide="package"></i> Product Configurator</a>
+      </li>
+      <li class="menu-item" data-view="authority-matrix-view">
+        <a><i data-lucide="sliders"></i> Authority Matrix</a>
+      </li>
+      <li class="menu-item" data-view="admin-config-view">
+        <a><i data-lucide="settings"></i> Admin Settings</a>
+      </li>
+      <li class="menu-item" data-view="audit-trail-view">
+        <a><i data-lucide="history"></i> Audit Trail</a>
+      </li>
+    </ul>
+
+    <!-- Sidebar Footer - System Health Indicator -->
+    <div class="sidebar-footer">
+      <div class="system-status">
+        <span class="status-dot"></span>
+        <span>Candela Core Engine: Active</span>
+      </div>
+      <a class="sidebar-footer-link" onclick="app.switchView('admin-config-view')"><i data-lucide="shield-alert" style="width: 14px; height: 14px;"></i> System Settings</a>
+    </div>
+  </aside>
+
+  <!-- Main View Area -->
+  <main id="app-main">
+    
+    <!-- Top Header Bar -->
+    <header id="app-header">
+      <div class="header-left">
+        <div class="search-bar-container">
+          <i data-lucide="search"></i>
+          <input type="text" class="search-input" id="global-search" placeholder="Search quotations, customers, locations...">
+        </div>
+      </div>
+      <div class="header-right" style="position: relative;">
+        <!-- Theme Switcher -->
+        <button class="theme-toggle-btn" id="theme-toggle" title="Toggle Theme">
+          <i data-lucide="moon" id="theme-icon"></i>
+        </button>
+
+        <!-- Notification Bell -->
+        <button class="notification-bell-btn" id="bell-btn" title="Notifications">
+          <i data-lucide="bell"></i>
+          <span class="bell-badge" id="notif-badge"></span>
+        </button>
+
+        <!-- Top Right Profile Selector Trigger -->
+        <div class="profile-trigger" id="profile-menu-trigger">
+          <div class="profile-avatar-top" id="header-avatar-initials">DW</div>
+          <div class="profile-name-details">
+            <h4 id="header-user-name">David Wright</h4>
+            <p id="header-user-role">Underwriter</p>
+          </div>
+          <i data-lucide="chevron-down" class="profile-chevron"></i>
+        </div>
+
+        <!-- Profile Selector Dropdown Panel -->
+        <div class="profile-dropdown-container" id="profile-dropdown">
+          <div class="dropdown-user-header">
+            <div class="dropdown-user-avatar" id="dropdown-avatar-initials">DW</div>
+            <div class="dropdown-user-meta">
+              <h4 id="dropdown-user-name">David Wright</h4>
+              <p id="dropdown-user-email">d.wright@candelalabs.com</p>
+            </div>
+          </div>
+          <div class="dropdown-section-title">Switch Active Persona</div>
+          <div class="role-switcher-list" id="dropdown-role-list">
+            <!-- Rendered Dynamically by JS -->
+          </div>
+          <div class="dropdown-footer-actions">
+            <a class="dropdown-footer-btn" onclick="app.switchView('admin-config-view'); app.closeProfileDropdown();"><i data-lucide="settings"></i> System Settings</a>
+            <a class="dropdown-footer-btn" onclick="app.simulateSignOut()"><i data-lucide="log-out"></i> Sign Out Session</a>
+          </div>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- Scrollable Viewport -->
+    <div class="viewport-container">
+      
+      <!-- 1. DASHBOARD VIEW -->
+      <section id="dashboard-view" class="app-view active">
+        <div class="view-title-container">
+          <div>
+            <div class="breadcrumbs">Underwriting Platform / <span>Dashboard</span></div>
+            <h2>Workbench Dashboard</h2>
+          </div>
+          <button class="btn btn-primary" onclick="app.switchView('new-quote-view')"><i data-lucide="plus"></i> New Quote</button>
+        </div>
+
+        <!-- Case Type Toggle -->
+        <div class="case-type-toggle-bar">
+          <div class="case-type-label"><i data-lucide="filter" style="width:14px;height:14px;"></i> Filter by Case Type:</div>
+          <div class="case-type-btns">
+            <button class="case-type-btn active" data-type="all" onclick="app.setCaseTypeFilter('all')"><i data-lucide="layout-grid"></i> All Cases</button>
+            <button class="case-type-btn" data-type="fresh" onclick="app.setCaseTypeFilter('fresh')"><i data-lucide="file-plus"></i> Fresh Cases</button>
+            <button class="case-type-btn" data-type="returning" onclick="app.setCaseTypeFilter('returning')"><i data-lucide="refresh-cw"></i> Returning Cases</button>
+          </div>
+          <div style="margin-left:auto;font-size:0.72rem;color:var(--text-muted);font-style:italic;max-width:420px;">One view to classify, route, underwrite, monitor accumulation and release commercial quotations with full visibility.</div>
+        </div>
+
+        <!-- Metric Grid -->
+        <div class="metrics-grid" id="dashboard-metrics">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Quick Filters -->
+        <div class="filters-container">
+          <div class="filters-header"><i data-lucide="filter"></i> Quick Filters</div>
+          <div class="filters-grid">
+            <div class="filter-group">
+              <label>LOB / Product</label>
+              <select class="filter-select" id="filter-lob">
+                <option value="all">All LOBs</option>
+                <option value="Property">Commercial Property</option>
+                <option value="Liability">General Liability</option>
+                <option value="Cargo">Marine Cargo</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Risk Category</label>
+              <select class="filter-select" id="filter-risk">
+                <option value="all">All Risks</option>
+                <option value="Preferred">Preferred Risk</option>
+                <option value="Referred">Referred Risk</option>
+                <option value="Deferred">Deferred Risk</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>SLA Urgency</label>
+              <select class="filter-select" id="filter-sla">
+                <option value="all">All SLA States</option>
+                <option value="breaching">Nearing SLA Breach</option>
+                <option value="normal">Normal</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Branch / Region</label>
+              <select class="filter-select" id="filter-branch">
+                <option value="all">All Branches</option>
+                <option value="Bangkok">Bangkok HQ</option>
+                <option value="Pattaya">Pattaya Hub</option>
+                <option value="Chiang Mai">Chiang Mai Branch</option>
+                <option value="Rayong">Rayong Hub</option>
+                <option value="Khon Kaen">Khon Kaen Hub</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data List -->
+        <div class="table-container">
+          <div class="table-header-bar">
+            <h3>Active Commercial Quotations</h3>
+            <span class="badge badge-pending" id="table-count-badge">0 items</span>
+          </div>
+          <table class="insurance-table" id="dashboard-table">
+            <thead>
+              <tr>
+                <th>Quote No.</th>
+                <th>Customer</th>
+                <th>Case Type</th>
+                <th>LOB / Product</th>
+                <th>TIV (Sum Insured)</th>
+                <th>Risk Category</th>
+                <th>SLA Timer</th>
+                <th>Assigned Owner</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-table-body">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Portfolio Intelligence & MI Reports Section -->
+        <div class="panel-card" style="margin-top: 25px; padding: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+            <h3 style="margin: 0; font-size: 1.15rem; display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="bar-chart-3" style="color: var(--accent-color);"></i> Portfolio Intelligence & MI Reports
+            </h3>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Real-time metrics & operational analytics</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 24px;">
+            <!-- Conversion Rates by LOB -->
+            <div style="padding: 14px; background: var(--bg-app); border: 1px solid var(--border-color); border-radius: 8px;">
+              <h4 style="font-size: 0.88rem; margin-bottom: 15px; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between; margin-top: 0;">
+                <span>LOB Conversion Rates</span>
+                <i data-lucide="trending-up" style="width: 14px; height: 14px; color: var(--risk-preferred-text);"></i>
+              </h4>
+              <div style="display: flex; flex-direction: column; gap: 12px;" id="mi-conversion-rates">
+                <!-- Rendered dynamically -->
+              </div>
+            </div>
+
+            <!-- SLA Ageing & Compliance Trend -->
+            <div style="padding: 14px; background: var(--bg-app); border: 1px solid var(--border-color); border-radius: 8px;">
+              <h4 style="font-size: 0.88rem; margin-bottom: 15px; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between; margin-top: 0;">
+                <span>Monthly SLA Compliance & Referral Rate</span>
+                <i data-lucide="clock" style="width: 14px; height: 14px; color: var(--risk-referred-text);"></i>
+              </h4>
+              <div style="display: flex; flex-direction: column; gap: 12px;" id="mi-sla-trends">
+                <!-- Rendered dynamically -->
+              </div>
+            </div>
+
+            <!-- Capacity Utilization & Net Retention -->
+            <div style="padding: 14px; background: var(--bg-app); border: 1px solid var(--border-color); border-radius: 8px;">
+              <h4 style="font-size: 0.88rem; margin-bottom: 15px; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between; margin-top: 0;">
+                <span>Capacity Exposure Split</span>
+                <i data-lucide="pie-chart" style="width: 14px; height: 14px; color: var(--accent-color);"></i>
+              </h4>
+              <div style="display: flex; flex-direction: column; gap: 12px;" id="mi-capacity-split">
+                <!-- Rendered dynamically -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. NEW QUOTATION STEPPER VIEW -->
+      <section id="new-quote-view" class="app-view">
+        <div class="view-title-container">
+          <div>
+            <div class="breadcrumbs">Quotation Engine / <span>Create Quotation</span></div>
+            <h2>New Commercial Quotation journey</h2>
+          </div>
+          <button class="btn btn-secondary" onclick="app.switchView('dashboard-view')">Cancel</button>
+        </div>
+
+        <!-- Stepper Indicators -->
+        <div class="stepper-header" id="stepper-header-list">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Form Step Content Box -->
+        <div class="wizard-form-container" id="wizard-form-box">
+          <!-- Dynamic Form content rendered by JS -->
+        </div>
+      </section>
+
+      <!-- 3. WORK QUEUE VIEW -->
+      <section id="work-queue-view" class="app-view">
+        <div class="view-title-container">
+          <div>
+            <div class="breadcrumbs">Workbench / <span>Work Queue</span></div>
+            <h2>Underwriter Work Queue</h2>
+          </div>
+        </div>
+
+        <!-- Tabs for Work Queue -->
+        <div class="filters-container" style="padding: 10px 20px; display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn btn-secondary btn-sm btn-active" data-queue="all" onclick="app.filterQueue('all', this)">All Assigned</button>
+          <button class="btn btn-secondary btn-sm" data-queue="preferred" onclick="app.filterQueue('Preferred', this)">Preferred Risks</button>
+          <button class="btn btn-secondary btn-sm" data-queue="referred" onclick="app.filterQueue('Referred', this)">Referred Risks</button>
+          <button class="btn btn-secondary btn-sm" data-queue="deferred" onclick="app.filterQueue('Deferred', this)">Deferred Risks</button>
+          <button class="btn btn-secondary btn-sm" data-queue="clarification" onclick="app.filterQueue('clarification', this)">Pending Clarification</button>
+          <button class="btn btn-secondary btn-sm" data-queue="docs" onclick="app.filterQueue('docs', this)">Pending Documents</button>
+          <button class="btn btn-secondary btn-sm" data-queue="reinsurance" onclick="app.filterQueue('reinsurance', this)">Pending Reinsurance</button>
+        </div>
+
+        <!-- Table Container -->
+        <div class="table-container">
+          <table class="insurance-table">
+            <thead>
+              <tr>
+                <th>Quote No.</th>
+                <th>Customer Name</th>
+                <th>Product / LOB</th>
+                <th>Sum Insured</th>
+                <th>Risk Category</th>
+                <th>SLA Ageing</th>
+                <th>Required Approver</th>
+                <th>Next Action</th>
+              </tr>
+            </thead>
+            <tbody id="work-queue-table-body">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 4. QUOTATION DETAIL REVIEW VIEW -->
+      <section id="quote-detail-view" class="app-view">
+        <div class="view-title-container">
+          <div>
+            <div class="breadcrumbs">Quotations / <span id="detail-quote-number-breadcrumb">QT2024001</span></div>
+            <h2 id="detail-quote-title">Quotation details: Acme Manufacturing Ltd</h2>
+          </div>
+          <div style="display: flex; gap: 12px;">
+            <button class="btn btn-secondary" onclick="app.goBackToQueue()"><i data-lucide="arrow-left"></i> Back to Queue</button>
+            <button class="btn btn-primary" id="detail-primary-action-btn">Action Quote</button>
+          </div>
+        </div>
+
+        <div class="details-layout">
+          <!-- Main details panel -->
+          <div class="details-main-panel">
+            
+            <!-- Case Type Banner -->
+            <div id="detail-case-type-banner"></div>
+
+            <!-- Dynamic Workflow Stepper -->
+            <div class="panel-card" id="detail-workflow-stepper" style="padding:16px 20px;"></div>
+
+            <!-- Next Best Actions (2-col row with UW Ladder) -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+              <div class="panel-card">
+                <div class="panel-card-title"><span><i data-lucide="zap"></i> Next Best Actions</span></div>
+                <div id="detail-next-best-actions"></div>
+              </div>
+              <div class="panel-card">
+                <div class="panel-card-title"><span><i data-lucide="git-branch"></i> UW Authority Routing Ladder</span></div>
+                <div id="detail-uw-ladder"></div>
+              </div>
+            </div>
+
+            <!-- Quick Alert Summary -->
+            <div id="detail-alert-banner"></div>
+
+            <!-- AI Underwriting Assist -->
+            <div class="panel-card" style="border-left: 4px solid #8b5cf6; background: linear-gradient(to right, var(--bg-card), rgba(139,92,246,0.02));">
+              <div class="panel-card-title" style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                <span style="color: #7c3aed; display: flex; align-items: center; gap: 8px; font-weight: 700;"><i data-lucide="sparkles"></i> AI Underwriting Assist</span>
+                <span class="badge" style="background: rgba(139,92,246,0.15); color: #7c3aed; font-size: 0.7rem; font-weight: 700;">Claude Engine Active</span>
+              </div>
+              <div style="font-size: 0.8rem; line-height: 1.45; color: var(--text-secondary); margin-bottom: 12px;" id="detail-ai-summary">
+                <!-- AI Summary text -->
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; border-top: 1px dashed var(--border-color); padding-top: 12px;">
+                <div>
+                  <h5 style="margin: 0 0 8px 0; font-size: 0.75rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 5px;">
+                    <i data-lucide="file-check-2" style="width: 13px; height: 13px; color: var(--accent-color);"></i> Document OCR Checklist
+                  </h5>
+                  <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.7rem;" id="detail-ai-ocr-list">
+                    <!-- OCR validation checklist -->
+                  </div>
+                </div>
+                <div>
+                  <h5 style="margin: 0 0 8px 0; font-size: 0.75rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 5px;">
+                    <i data-lucide="lightbulb" style="width: 13px; height: 13px; color: #eab308;"></i> Underwriting Prompt Actions
+                  </h5>
+                  <div style="display: flex; flex-wrap: wrap; gap: 6px;" id="detail-ai-prompts">
+                    <!-- Trigger buttons -->
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Claims & Loss History Integration -->
+            <div class="panel-card">
+              <div class="panel-card-title" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="display: flex; align-items: center; gap: 8px;"><i data-lucide="history"></i> Claims & Loss History Integration</span>
+                <span class="badge" id="detail-loss-ratio-badge" style="font-weight: 700;">Loss Ratio: 0%</span>
+              </div>
+              <div style="font-size: 0.78rem; margin-bottom: 10px; color: var(--text-secondary);" id="detail-claims-summary-desc">
+                <!-- Claims count, severity indicator -->
+              </div>
+              <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.72rem;" id="detail-claims-table">
+                  <thead>
+                    <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+                      <th style="padding: 6px 4px;">Loss Date</th>
+                      <th style="padding: 6px 4px;">Cause of Loss</th>
+                      <th style="padding: 6px 4px;">Amount Paid (₹)</th>
+                      <th style="padding: 6px 4px;">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="detail-claims-tbody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Inspection & Risk Engineering -->
+            <div class="panel-card">
+              <div class="panel-card-title" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="display: flex; align-items: center; gap: 8px;"><i data-lucide="clipboard-check"></i> Inspection & Risk Engineering</span>
+                <span class="badge" id="detail-survey-status-badge">Survey Completed</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px;">
+                <div>
+                  <h5 style="margin: 0 0 6px 0; font-size: 0.78rem; font-weight: 700; color: var(--text-primary);">Surveyor Recommendations</h5>
+                  <ul style="margin: 0; padding-left: 16px; font-size: 0.75rem; color: var(--text-secondary); line-height: 1.45;" id="detail-survey-recs">
+                    <!-- Recommendations -->
+                  </ul>
+                </div>
+                <div style="border-left: 1px solid var(--border-color); padding-left: 15px;">
+                  <h5 style="margin: 0 0 8px 0; font-size: 0.78rem; font-weight: 700; color: var(--text-primary);">Compliance Actions</h5>
+                  <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.72rem;" id="detail-survey-compliance">
+                    <!-- Compliance checks -->
+                  </div>
+                  <button class="btn btn-secondary w-full" style="margin-top: 12px; padding: 6px 10px; font-size: 0.7rem;" onclick="app.triggerNewSurvey()"><i data-lucide="plus"></i> Request Survey</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Document Generation & e-Sign -->
+            <div class="panel-card">
+              <div class="panel-card-title" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="display: flex; align-items: center; gap: 8px;"><i data-lucide="file-text"></i> Document Generation & e-Sign</span>
+                <span class="badge" id="detail-esign-badge">Awaiting Signatures</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px;">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <button class="btn btn-secondary text-left w-full" style="padding: 8px 12px; font-size: 0.75rem;" onclick="app.previewDocument('Quote Slip')">
+                    <i data-lucide="file-output" style="vertical-align: middle; margin-right: 6px; width: 14px; height: 14px;"></i> Generate Quote Slip
+                  </button>
+                  <button class="btn btn-secondary text-left w-full" style="padding: 8px 12px; font-size: 0.75rem;" onclick="app.previewDocument('Policy Schedule')">
+                    <i data-lucide="file-output" style="vertical-align: middle; margin-right: 6px; width: 14px; height: 14px;"></i> Generate Policy Schedule
+                  </button>
+                </div>
+                <div style="padding: 10px; background: var(--bg-app); border: 1px solid var(--border-color); border-radius: 6px;">
+                  <h5 style="margin: 0 0 8px 0; font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted);">e-Sign Tracking</h5>
+                  <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.75rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; color: var(--text-primary);">
+                      <span>Underwriter:</span>
+                      <span id="esign-status-uw" style="font-weight: 600; color: var(--text-secondary);">Pending Review</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; color: var(--text-primary);">
+                      <span>Broker (e-Sign):</span>
+                      <span id="esign-status-broker" style="font-weight: 600; color: var(--text-secondary);">Awaiting Generation</span>
+                    </div>
+                  </div>
+                  <button class="btn btn-primary w-full" id="btn-trigger-esign" style="margin-top: 10px; padding: 6px 10px; font-size: 0.7rem;" onclick="app.triggerESign()" disabled>Trigger e-Sign Workflow</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 1. Customer & Risk Summary -->
+            <div class="panel-card">
+            <div class="panel-card-title">
+                <span><i data-lucide="info"></i> Core Risk Information</span>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;">
+                  <span class="badge" id="detail-risk-badge">Preferred</span>
+                  <div id="detail-risk-reason"></div>
+                </div>
+              </div>
+              <div class="data-group-grid">
+                <div class="data-item">
+                  <label>Customer Name</label>
+                  <p id="detail-cust-name">-</p>
+                </div>
+                <div class="data-item">
+                  <label>Commercial LOB</label>
+                  <p id="detail-lob">-</p>
+                </div>
+                <div class="data-item">
+                  <label>Sum Insured</label>
+                  <p id="detail-sum-insured">-</p>
+                </div>
+                <div class="data-item">
+                  <label>Occupancy / Trade</label>
+                  <p id="detail-occupancy">-</p>
+                </div>
+                <div class="data-item">
+                  <label>Coordinates (Lat / Lng)</label>
+                  <p id="detail-coords">-</p>
+                </div>
+                <div class="data-item">
+                  <label>Claims History (3Y)</label>
+                  <p id="detail-claims">-</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Risk Assessment Triggers & Score -->
+            <div class="panel-card">
+              <div class="panel-card-title">
+                <span><i data-lucide="shield-alert"></i> Risk Assessment & Rules Triggers</span>
+                <div style="font-weight: 700; font-size: 1rem; color: var(--primary);">Risk Score: <span id="detail-risk-score">0</span>/100</div>
+              </div>
+              <div id="detail-triggers-content">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+
+            <!-- 3. Reinsurance Recommendation Card -->
+            <div class="panel-card" id="detail-reinsurance-panel">
+              <div class="panel-card-title">
+                <span><i data-lucide="shield"></i> Reinsurance Capacity Analysis</span>
+                <span class="badge" id="detail-reinsurance-badge">Treaty Applicable</span>
+              </div>
+              <div class="data-group-grid" style="margin-bottom: 20px;">
+                <div class="data-item">
+                  <label>Company Net Retention</label>
+                  <p id="detail-retention">₹1.00 Cr</p>
+                </div>
+                <div class="data-item">
+                  <label>Treaty Capacity</label>
+                  <p id="detail-treaty-cap">₹5.00 Cr</p>
+                </div>
+                <div class="data-item">
+                  <label>Required Reinsurance</label>
+                  <p id="detail-required-re">-</p>
+                </div>
+                <div class="data-item">
+                  <label>Placement Suggestion</label>
+                  <p id="detail-placement-sugg">-</p>
+                </div>
+              </div>
+              <div class="ri-flow-chart" id="detail-ri-flow">
+                <!-- Visual Nodes -->
+              </div>
+            </div>
+
+            <!-- 4. Underwriting Hierarchy / Escalation Routing -->
+            <div class="panel-card">
+              <div class="panel-card-title">
+                <span><i data-lucide="git-branch"></i> Authority Referral & Escalation Log</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;" id="detail-routing-info">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+
+            <!-- 5. Underwriting Remarks & Document Checklist -->
+            <div class="panel-card" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              <div>
+                <h4 style="margin-bottom: 12px; font-size: 0.95rem; font-weight: 700; color: var(--text-secondary);">Uploaded Documents</h4>
+                <div id="detail-docs-checklist" style="display: flex; flex-direction: column; gap: 8px;">
+                  <!-- List of documents -->
+                </div>
+              </div>
+              <div>
+                <h4 style="margin-bottom: 12px; font-size: 0.95rem; font-weight: 700; color: var(--text-secondary);">Clarification Center</h4>
+                <div class="chat-container">
+                  <div class="chat-history" id="detail-chat-history">
+                    <!-- Message bubbles -->
+                  </div>
+                  <div class="chat-input-bar">
+                    <input type="text" class="chat-input" id="detail-chat-input" placeholder="Ask agent for documents/information...">
+                    <button class="btn btn-primary btn-sm" id="detail-send-chat-btn"><i data-lucide="send"></i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Bottom Intelligence Panel (Fresh: Missing Info / Returning: Comparison) -->
+            <div id="detail-bottom-intelligence"></div>
+
+          </div>
+
+          <!-- Side details panel -->
+          <div class="details-side-panel">
+            
+            <!-- SLA Timer widget -->
+            <div class="panel-card" style="text-align: center; background: linear-gradient(135deg, var(--bg-card), var(--primary-light));">
+              <h4 style="font-size: 0.9rem; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px;">SLA Countdown</h4>
+              <div id="detail-sla-timer-text" style="font-size: 2.25rem; font-family: var(--font-display); font-weight: 800; color: var(--primary);">23h 40m</div>
+              <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;" id="detail-sla-escalation-target">Next Escalation: Senior Underwriter</p>
+            </div>
+
+            <!-- Underwriter Actions Panel -->
+            <div class="panel-card" id="detail-decision-actions-panel">
+              <div class="panel-card-title">Decision Panel</div>
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div class="form-field">
+                  <label>loading / Discount (%)</label>
+                  <input type="number" class="form-input" id="detail-loading-input" value="0">
+                </div>
+                <div class="form-field">
+                  <label>Remarks / Underwriting Notes</label>
+                  <textarea class="form-textarea" id="detail-remarks-input" rows="3" placeholder="Enter decision notes..."></textarea>
+                </div>
+                
+                <!-- Decision Buttons -->
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;" id="detail-action-buttons-box">
+                  <button class="btn btn-success" onclick="app.executeDecision('Approve')"><i data-lucide="check"></i> Approve Quote</button>
+                  <button class="btn btn-warning" onclick="app.executeDecision('Refer')"><i data-lucide="share-2"></i> Refer up Hierarchy</button>
+                  <button class="btn btn-danger" onclick="app.executeDecision('Decline')"><i data-lucide="x"></i> Decline Quote</button>
+                  <button class="btn btn-secondary" onclick="app.executeDecision('Defer')"><i data-lucide="clock"></i> Defer Quote</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quotation Progress Tracker / Timeline -->
+            <div class="panel-card">
+              <div class="panel-card-title">Workflow Progress</div>
+              <ul class="timeline-tracker" id="detail-progress-timeline">
+                <!-- Timeline elements -->
+              </ul>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. RISK ACCUMULATION MAP VIEW -->
+      <section id="risk-map-view" class="app-view">
+        <div class="view-title-container">
+          <div>
+            <div class="breadcrumbs">Exposure Management / <span>Accumulation Analysis</span></div>
+            <h2>Geospatial Risk Accumulation</h2>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">Accumulation Radius:</label>
+            <select class="filter-select" style="width: 120px;" id="map-radius-selector" onchange="app.changeMapRadius(this.value)">
+              <option value="5">5 km</option>
+              <option value="10">10 km</option>
+              <option value="15">15 km</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="map-layout">
+          <div class="map-viewport-container">
+            <!-- Leaflet Map (replaces canvas) -->
+            <div id="leaflet-map" style="width:100%;height:520px;border-radius:var(--radius-lg);"></div>
+            
+            <!-- Floating overlay — PDF §7: Nearby Risks, TIV, Company Capacity, Remaining, Level, Action -->
+            <div class="map-overlay-card">
+              <h4 style="font-weight:700;font-size:0.9rem;margin-bottom:10px;display:flex;align-items:center;gap:6px;"><i data-lucide="layers" style="width:14px;height:14px;"></i> Portfolio Accumulation</h4>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+                <div style="font-size:0.7rem;color:#94a3b8;">Nearby Risks</div>
+                <div style="font-size:0.82rem;font-weight:700;"><span id="map-overlay-count">0</span> sites</div>
+                <div style="font-size:0.7rem;color:#94a3b8;">Total TIV Exposure</div>
+                <div style="font-size:0.82rem;font-weight:700;"><span id="map-overlay-exposure">₹0</span></div>
+                <div style="font-size:0.7rem;color:#94a3b8;">Company Capacity</div>
+                <div style="font-size:0.82rem;font-weight:700;"><span id="map-overlay-company-cap">₹150 Cr</span></div>
+                <div style="font-size:0.7rem;color:#94a3b8;">Remaining Capacity</div>
+                <div style="font-size:0.82rem;font-weight:700;"><span id="map-overlay-remaining">₹150 Cr</span></div>
+                <div style="font-size:0.7rem;color:#94a3b8;">Exposure Level</div>
+                <div style="font-size:0.82rem;font-weight:700;"><span id="map-overlay-level">Low</span></div>
+              </div>
+              <div class="map-capacity-gauge-container">
+                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: #94a3b8;">
+                  <span>Capacity Used</span>
+                  <span id="map-overlay-capacity-percent">0%</span>
+                </div>
+                <div class="gauge-bar-wrapper">
+                  <div class="gauge-bar-fill" id="map-overlay-capacity-bar"></div>
+                </div>
+              </div>
+              <div id="map-overlay-action" style="margin-top:8px;font-size:0.72rem;font-weight:700;padding:5px 8px;border-radius:6px;background:#eff6ff;color:#2563eb;border-left:3px solid #2563eb;">
+                Within safe accumulation limits
+              </div>
+            </div>
+          </div>
+
+          <div class="details-side-panel" style="gap: 20px;">
+            <div class="panel-card" style="padding: 16px;">
+              <h4 style="font-size: 0.95rem; margin-bottom: 12px; color: var(--text-secondary);">Map Legend</h4>
+              <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.82rem;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 12px; height: 12px; border-radius: 50%; background-color: var(--risk-preferred); border: 2px solid white; display: inline-block;"></span>
+                  <span>Preferred Insured Location</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 12px; height: 12px; border-radius: 50%; background-color: var(--risk-referred); border: 2px solid white; display: inline-block;"></span>
+                  <span>Referred Risk Location</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 12px; height: 12px; border-radius: 50%; background-color: var(--risk-deferred); border: 2px solid white; display: inline-block;"></span>
+                  <span>Deferred Risk Location</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 20px; height: 20px; border-radius: 50%; background-color: rgba(59, 130, 246, 0.12); border: 1px dashed var(--primary); display: inline-block;"></span>
+                  <span>Accumulation Zone Radius</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 14px; height: 14px; background-color: rgba(239, 68, 68, 0.2); border: 1px solid var(--risk-deferred); display: inline-block;"></span>
+                  <span>High-Risk Flood Zone Layer</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-card" style="padding: 16px;">
+              <h4 style="font-size: 0.95rem; margin-bottom: 12px; color: var(--text-secondary);">Accumulation Metrics</h4>
+              <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.82rem;">
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: var(--text-muted);">Capacity Limit:</span>
+                  <span style="font-weight: 600;">₹150.0 Cr</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: var(--text-muted);">Current Exposure:</span>
+                  <span id="map-metrics-exposure" style="font-weight: 600;">₹12.20 Cr</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: var(--text-muted);">Available Capacity:</span>
+                  <span id="map-metrics-avail" style="font-weight: 600; color: var(--risk-referred-text);">₹137.8 Cr</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: var(--text-muted);">Breach Risk:</span>
+                  <span style="font-weight: 600; color: var(--risk-deferred-text);" id="map-metrics-breach-risk">18.7%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- GIS Hazard Overlays -->
+            <div class="panel-card" style="padding: 16px; margin-top: 15px;">
+              <h4 style="font-size: 0.95rem; margin-bottom: 12px; color: var(--text-secondary);">GIS Hazard Layers</h4>
+              <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.82rem;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-primary);">
+                  <input type="checkbox" id="gis-flood-zone" onchange="app.toggleGISLayer('flood', this.checked)">
+                  <span>Flood Ingress Zones (100-Year)</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-primary);">
+                  <input type="checkbox" id="gis-seismic-zone" onchange="app.toggleGISLayer('seismic', this.checked)">
+                  <span>Seismic Fault Activity Zones</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-primary);">
+                  <input type="checkbox" id="gis-storm-surge" onchange="app.toggleGISLayer('storm', this.checked)">
+                  <span>Storm Surge & Wind Hazard Zones</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Nearby Peril Details -->
+            <div class="panel-card" style="padding: 16px; margin-top: 15px;">
+              <h4 style="font-size: 0.95rem; margin-bottom: 10px; color: var(--text-secondary);">Nearby Peril Exposures</h4>
+              <div style="max-height: 150px; overflow-y: auto; font-size: 0.72rem;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;" id="map-perils-table">
+                  <thead>
+                    <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+                      <th style="padding: 4px 0;">Peril Type</th>
+                      <th style="padding: 4px 0;">Risk Level</th>
+                      <th style="padding: 4px 0;">Zone</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="padding: 6px 0; font-weight: 600; color: var(--text-primary);">Coastal Surge</td>
+                      <td style="padding: 6px 0;"><span class="badge" style="background:#fef3c7;color:#d97706;padding:2px 6px;">Medium</span></td>
+                      <td style="padding: 6px 0; color: var(--text-secondary);">Pattaya Gulf</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 0; font-weight: 600; color: var(--text-primary);">Monsoon Flood</td>
+                      <td style="padding: 6px 0;"><span class="badge" style="background:#fee2e2;color:#dc2626;padding:2px 6px;">High</span></td>
+                      <td style="padding: 6px 0; color: var(--text-secondary);">Chao Phraya</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 0; font-weight: 600; color: var(--text-primary);">Seismic Slip</td>
+                      <td style="padding: 6px 0;"><span class="badge" style="background:#d1fae5;color:#059669;padding:2px 6px;">Low</span></td>
+                      <td style="padding: 6px 0; color: var(--text-secondary);">Chiang Mai Fault</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- 5B. PRODUCT CONFIGURATOR VIEW -->
+      <section id="product-configurator-view" class="app-view">
+        <div class="view-title-container">
+          <div>
+            <div class="breadcrumbs">Product Configuration / <span>Coverage & Clauses</span></div>
+            <h2>LOB Coverage & Policy Configurator</h2>
+          </div>
+          <button class="btn btn-primary" onclick="app.saveProductConfig()"><i data-lucide="save"></i> Save Configuration</button>
+        </div>
+
+        <div class="rules-editor-layout" style="display: grid; grid-template-columns: 280px 1fr 1fr; gap: 20px;">
+          <!-- LOB Selector Sidebar -->
+          <div class="panel-card" style="padding: 16px;">
+            <h4 style="font-size: 0.95rem; margin-bottom: 12px; color: var(--text-secondary);">Select Line of Business</h4>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <button class="btn btn-secondary w-full text-left active lob-config-btn" data-lob="Property" onclick="app.selectConfigLOB('Property', this)"><i data-lucide="home" style="vertical-align: middle; margin-right: 6px;"></i> Commercial Property</button>
+              <button class="btn btn-secondary w-full text-left lob-config-btn" data-lob="Liability" onclick="app.selectConfigLOB('Liability', this)"><i data-lucide="shield" style="vertical-align: middle; margin-right: 6px;"></i> General Liability</button>
+              <button class="btn btn-secondary w-full text-left lob-config-btn" data-lob="Cargo" onclick="app.selectConfigLOB('Cargo', this)"><i data-lucide="ship" style="vertical-align: middle; margin-right: 6px;"></i> Marine Cargo</button>
+              <button class="btn btn-secondary w-full text-left lob-config-btn" data-lob="Engineering" onclick="app.selectConfigLOB('Engineering', this)"><i data-lucide="cpu" style="vertical-align: middle; margin-right: 6px;"></i> Engineering & CAR</button>
+            </div>
+            <div style="margin-top: 20px; font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
+              Configure core structures, exclusions, and warranties for each commercial line of business. These rules apply to new intakes and verification checklist runs.
+            </div>
+          </div>
+
+          <!-- Coverages & Deductibles Panel -->
+          <div class="panel-card" style="padding: 20px;">
+            <div class="panel-card-title" style="margin-bottom: 15px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="check-square" style="color: var(--accent-color);"></i> Core Coverages & Perils
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px;" id="config-coverages-list">
+              <!-- Rendered dynamically -->
+            </div>
+
+            <div class="panel-card-title" style="margin-top: 30px; margin-bottom: 15px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="percent" style="color: var(--risk-referred-text);"></i> Deductibles & Excess
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div class="form-field">
+                <label>Standard Deductible (%)</label>
+                <input type="number" step="0.1" class="form-input" id="cfg-lob-deductible-pct" value="5">
+              </div>
+              <div class="form-field">
+                <label>Minimum Deductible Threshold (₹)</label>
+                <input type="number" class="form-input" id="cfg-lob-deductible-min" value="50000">
+              </div>
+            </div>
+          </div>
+
+          <!-- Exclusions & Warranties Panel -->
+          <div class="panel-card" style="padding: 20px;">
+            <div class="panel-card-title" style="margin-bottom: 15px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="alert-octagon" style="color: var(--risk-deferred-text);"></i> Excluded Risks
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;" id="config-exclusions-list">
+              <!-- Rendered dynamically -->
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+              <input type="text" class="form-input" id="new-exclusion-input" placeholder="Add custom exclusion..." style="font-size: 0.8rem;">
+              <button class="btn btn-secondary" onclick="app.addCustomExclusion()" style="padding: 6px 12px; font-size: 0.8rem;"><i data-lucide="plus"></i></button>
+            </div>
+
+            <div class="panel-card-title" style="margin-top: 30px; margin-bottom: 15px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="clipboard-list" style="color: var(--accent-color);"></i> Special Warranties & Conditions
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;" id="config-warranties-list">
+              <!-- Rendered dynamically -->
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+              <input type="text" class="form-input" id="new-warranty-input" placeholder="Add custom warranty..." style="font-size: 0.8rem;">
+              <button class="btn btn-secondary" onclick="app.addCustomWarranty()" style="padding: 6px 12px; font-size: 0.8rem;"><i data-lucide="plus"></i></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. UNDERWRITING AUTHORITY SETUP VIEW -->
+      <section id="authority-matrix-view" class="app-view">
+        <div class="view-title-container">
+          <div>
+            <div class="breadcrumbs">Admin Settings / <span>Authority Limits</span></div>
+            <h2>Underwriting Authority Matrix</h2>
+          </div>
+        </div>
+
+        <div class="authority-grid" id="authority-matrix-grid">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <!-- 7. ADMIN CONFIG VIEW -->
+      <section id="admin-config-view" class="app-view">
+        <div class="view-title-container">
+          <div>
+            <div class="breadcrumbs">Configuration / <span>Admin Rules</span></div>
+            <h2>Admin Rule Configuration</h2>
+          </div>
+          <button class="btn btn-primary" onclick="app.saveAdminRules()">Save Configuration</button>
+        </div>
+
+        <div class="details-layout">
+          <div class="details-main-panel">
+            <div class="panel-card">
+              <div class="panel-card-title">Risk Scoring Parameters</div>
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                  <div class="form-field">
+                    <label>Preferred Risk Limit Score (Min)</label>
+                    <input type="number" class="form-input" id="cfg-score-preferred" value="68">
+                  </div>
+                  <div class="form-field">
+                    <label>Deferred Risk Limit Score (Below)</label>
+                    <input type="number" class="form-input" id="cfg-score-deferred" value="40">
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label>Max Allowed Claims (3-Year Period)</label>
+                  <input type="number" class="form-input" id="cfg-max-claims" value="3">
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-card">
+              <div class="panel-card-title">Accumulation Thresholds & Perils</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-field">
+                  <label>Default Accumulation Search Radius (km)</label>
+                  <input type="number" class="form-input" id="cfg-accum-radius" value="5">
+                </div>
+                <div class="form-field">
+                  <label>Company Maximum Portfolio Capacity (₹)</label>
+                  <input type="number" class="form-input" id="cfg-max-capacity" value="15000000">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="details-side-panel">
+            <div class="panel-card">
+              <div class="panel-card-title">LOB Management</div>
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9rem;">
+                  <span>Commercial Property</span>
+                  <span class="badge badge-preferred">Active</span>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9rem;">
+                  <span>General Liability</span>
+                  <span class="badge badge-preferred">Active</span>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.9rem;">
+                  <span>Marine Cargo</span>
+                  <span class="badge badge-preferred">Active</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. AUDIT TRAIL VIEW -->
+      <section id="audit-trail-view" class="app-view">
+        <div class="view-title-container">
+          <div>
+            <div class="breadcrumbs">Security / <span>Audit Logs</span></div>
+            <h2>Audit Trail & Decision History</h2>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="insurance-table">
+            <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>Quote No.</th>
+                <th>User / Persona</th>
+                <th>Action Performed</th>
+                <th>State transition</th>
+                <th>Remarks / Comments</th>
+              </tr>
+            </thead>
+            <tbody id="audit-trail-table-body">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Notification Slide-out Drawer -->
+  <div id="notifications-drawer">
+    <div class="drawer-header">
+      <h4>System Notifications</h4>
+      <button class="btn btn-secondary btn-sm" id="close-drawer-btn" style="padding: 4px 8px;">Close</button>
+    </div>
+    <div class="drawer-content" id="notifications-list">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+  <!-- Reusable Modal Window -->
+  <div class="modal-overlay" id="app-modal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h4 id="modal-title">Modal Title</h4>
+        <button class="btn btn-secondary btn-sm" onclick="app.closeModal()">✕</button>
+      </div>
+      <div class="modal-body" id="modal-body">
+        <!-- Body content -->
+      </div>
+      <div class="modal-footer" id="modal-footer">
+        <!-- Footer buttons -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
